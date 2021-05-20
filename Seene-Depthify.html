@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Seene-Depthify</title>
+        <script src="https://mattiasw.github.io/ExifReader/exif-reader.js"></script>
+        <style>
+            body {
+                margin: 0;
+            }
+            div {
+                text-align: center;
+                width: 100vw;
+                height: 100vh;
+                font-family: Sans-Serif;
+            }
+            .highlight {
+                background-color: #51cb20;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="dropArea">
+            <input type="file" id="imageLoader" accept="image/jpeg" /><br />
+            <p>Choose (or drag&drop) a photo you wish to Seene-Depthify.</p>
+            <canvas id="resultCanvas" style="max-width: 50%; max-height: 50%;"></canvas>
+        </div>
+        <script>
+            let dropArea = document.getElementById("dropArea");
+            dropArea.addEventListener("drop", extractDepthMap, false);
+            document.getElementById("imageLoader").addEventListener("change", extractDepthMap, false);
+
+            ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            ["dragenter", "dragover"].forEach((eventName) => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            ["dragleave", "drop"].forEach((eventName) => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function highlight(e) {
+                dropArea.classList.add("highlight");
+            }
+
+            function unhighlight(e) {
+                dropArea.classList.remove("highlight");
+            }
+
+            let dropName;
+            let depthMap;
+
+            if (!("createImageBitmap" in window)) {
+                window.createImageBitmap = async function (data) {
+                    return new Promise((resolve, reject) => {
+                        let dataURL;
+                        const canvas = document.createElement("canvas");
+                        const ctx = canvas.getContext("2d");
+                        canvas.width = data.width;
+                        canvas.height = data.height;
+                        ctx.putImageData(data, 0, 0);
+                        dataURL = canvas.toDataURL();
+
+                        const img = document.createElement("img");
+                        img.addEventListener("load", function () {
+                            resolve(this);
+                        });
+                        img.src = dataURL;
+                    });
+                };
+            }
+
+            function extractDepthMap(e) {
+                var frExif = new FileReader();
+                var fr = new FileReader();
+
+                frExif.onload = function (readerEvent) {
+                    try {
+                        tags = ExifReader.load(readerEvent.target.result);
+                        depthMap = tags["Data"].value;
+                    } catch (error) {
+                        console.error(error);
+                    }
+                };
+
+                fr.onload = function (readerEvent) {
+                    try {
+                        var img = new Image();
+                        img.onload = function () {
+                            display_result(img);
+                        };
+                        img.src = fr.result;
+                    } catch (error) {
+                        console.error(error);
+                    }
+                };
+
+                try {
+                    fr.readAsDataURL(e.target.files[0]);
+                    frExif.readAsArrayBuffer(e.target.files[0]);
+                } catch (x) {
+                    dropName = e.dataTransfer.files[0].name;
+                    fr.readAsDataURL(e.dataTransfer.files[0]);
+                    frExif.readAsArrayBuffer(e.dataTransfer.files[0]);
+                }
+            }
+
+            async function display_result(img) {
+                var canvas = document.getElementById("resultCanvas");
+                var ctx = canvas.getContext("2d");
+                canvas.width = img.width * 2;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                var depth = new Image();
+                depth.src = "data:image/png;base64," + depthMap;
+                ctx.drawImage(depth, img.width, 0, img.width, img.height);
+
+                var imgd = ctx.getImageData(img.width, 0, img.width, img.height);
+                var pix = imgd.data;
+                for (var i = 0, n = pix.length; i < n; i += 4) {
+                    pix[i] = 255 - pix[i];
+                    pix[i + 1] = 255 - pix[i + 1];
+                    pix[i + 2] = 255 - pix[i + 2];
+                }
+                ctx.putImageData(imgd, img.width, 0);
+
+                setTimeout(function () {
+                    try {
+                        var ulName = document.getElementById("imageLoader").files.item(0).name;
+                        var dlName = ulName.substr(0, ulName.lastIndexOf(".")) + "_RGBD.png";
+                    } catch (x) {
+                        var dlName = dropName.substr(0, dropName.lastIndexOf(".")) + "_RGBD.png";
+                    }
+
+                    var dlLink = document.createElement("a");
+                    dlLink.download = dlName;
+                    dlLink.href = canvas.toDataURL("image/png");
+                    document.body.appendChild(dlLink);
+                    dlLink.click();
+                    document.body.removeChild(dlLink);
+                }, 350);
+            }
+        </script>
+    </body>
+</html>
