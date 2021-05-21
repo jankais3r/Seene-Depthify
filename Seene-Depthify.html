@@ -81,16 +81,16 @@
                 var frExif = new FileReader();
                 var fr = new FileReader();
 
-                frExif.onload = function (readerEvent) {
+                frExif.onload = function (e) {
                     try {
-                        tags = ExifReader.load(readerEvent.target.result);
+                        tags = ExifReader.load(e.target.result);
                         depthMap = tags["Data"].value;
                     } catch (error) {
                         console.error(error);
                     }
                 };
 
-                fr.onload = function (readerEvent) {
+                fr.onload = function (e) {
                     try {
                         var img = new Image();
                         img.onload = function () {
@@ -103,16 +103,27 @@
                 };
 
                 try {
-                    fr.readAsDataURL(e.target.files[0]);
-                    frExif.readAsArrayBuffer(e.target.files[0]);
+                    function workaround(callback) {
+                        frExif.readAsArrayBuffer(e.target.files[0]);
+                        window.setTimeout(function() {
+                            fr.readAsDataURL(callback);
+                        }, 500);
+                    }
+                    workaround(e.target.files[0]);
                 } catch (x) {
                     dropName = e.dataTransfer.files[0].name;
-                    fr.readAsDataURL(e.dataTransfer.files[0]);
-                    frExif.readAsArrayBuffer(e.dataTransfer.files[0]);
+                    
+                    function workaround(callback) {
+                        frExif.readAsArrayBuffer(e.dataTransfer.files[0]);
+                        window.setTimeout(function() {
+                            fr.readAsDataURL(callback);
+                        }, 500);
+                    }
+                    workaround(e.dataTransfer.files[0]);
                 }
             }
 
-            async function display_result(img) {
+            function display_result(img) {
                 var canvas = document.getElementById("resultCanvas");
                 var ctx = canvas.getContext("2d");
                 canvas.width = img.width * 2;
