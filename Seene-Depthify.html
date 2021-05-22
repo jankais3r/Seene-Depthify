@@ -80,11 +80,19 @@
             function extractDepthMap(e) {
                 var frExif = new FileReader();
                 var fr = new FileReader();
+                
+                try {
+                    var imageFile = e.target.files[0];
+                } catch (error) {
+                    dropName = e.dataTransfer.files[0].name;
+                    imageFile = e.dataTransfer.files[0];
+                }
 
                 frExif.onload = function (e) {
                     try {
                         tags = ExifReader.load(e.target.result);
                         depthMap = tags["Data"].value;
+                        fr.readAsDataURL(imageFile);
                     } catch (error) {
                         console.error(error);
                     }
@@ -101,26 +109,8 @@
                         console.error(error);
                     }
                 };
-
-                try {
-                    function workaround(callback) {
-                        frExif.readAsArrayBuffer(e.target.files[0]);
-                        window.setTimeout(function() {
-                            fr.readAsDataURL(callback);
-                        }, 500);
-                    }
-                    workaround(e.target.files[0]);
-                } catch (x) {
-                    dropName = e.dataTransfer.files[0].name;
-                    
-                    function workaround(callback) {
-                        frExif.readAsArrayBuffer(e.dataTransfer.files[0]);
-                        window.setTimeout(function() {
-                            fr.readAsDataURL(callback);
-                        }, 500);
-                    }
-                    workaround(e.dataTransfer.files[0]);
-                }
+                
+                frExif.readAsArrayBuffer(imageFile);
             }
 
             function display_result(img) {
@@ -132,7 +122,9 @@
 
                 var depth = new Image();
                 depth.src = "data:image/png;base64," + depthMap;
+                setTimeout(function () {
                 ctx.drawImage(depth, img.width, 0, img.width, img.height);
+                }, 100);
 
                 var imgd = ctx.getImageData(img.width, 0, img.width, img.height);
                 var pix = imgd.data;
@@ -146,18 +138,18 @@
                 setTimeout(function () {
                     try {
                         var ulName = document.getElementById("imageLoader").files.item(0).name;
-                        var dlName = ulName.substr(0, ulName.lastIndexOf(".")) + "_RGBD.png";
+                        var dlName = ulName.substr(0, ulName.lastIndexOf(".")) + "_RGBD.jpg";
                     } catch (x) {
-                        var dlName = dropName.substr(0, dropName.lastIndexOf(".")) + "_RGBD.png";
+                        var dlName = dropName.substr(0, dropName.lastIndexOf(".")) + "_RGBD.jpg";
                     }
 
                     var dlLink = document.createElement("a");
                     dlLink.download = dlName;
-                    dlLink.href = canvas.toDataURL("image/png");
+                    dlLink.href = canvas.toDataURL("image/jpeg");
                     document.body.appendChild(dlLink);
                     dlLink.click();
                     document.body.removeChild(dlLink);
-                }, 350);
+                }, 150);
             }
         </script>
     </body>
